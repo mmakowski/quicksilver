@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Quicksilver.OrderbookSpec (runTests) where
 
 import Quicksilver.Orderbook
