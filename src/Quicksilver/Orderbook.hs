@@ -7,8 +7,6 @@ module Quicksilver.Orderbook (Events,
                               emptyOrderbook,
                               placeOrder) where
 
-import Control.Monad
-
 type Events = [PlaceResult]
 data PlaceResult = Accepted                   
                  | Rejected
@@ -35,8 +33,8 @@ instance Matchable Order where
   
 matchOrders :: Order -> Order -> MatchResult  
 matchOrders o1@(Order p1 q1) o2@(Order p2 q2)
-  | (signum q1) == (signum q2) = MatchResult (Just o1) (Just o2) []
-  | (abs q1) > (abs q2) = MatchResult (Just (Order p1 (q1+q2)))  Nothing [Fill p1 q2, Fill p1 (-q2)]
+  | signum q1 == signum q2 = MatchResult (Just o1) (Just o2) []
+  | abs q1 > abs q2 = MatchResult (Just (Order p1 (q1+q2)))  Nothing [Fill p1 q2, Fill p1 (-q2)]
   | otherwise = MatchResult Nothing (Just (Order p2 (q1+q2))) [Fill p1 (-q1), Fill p1 q1]
 
 side :: Order -> Side
@@ -62,7 +60,8 @@ matches :: Side -> Match
 matches Bid = (>=)
 matches Ask = (<=)
 
-validOrder (Order p q) = and [q /= 0, p > 0]
+validOrder :: Order -> Bool
+validOrder (Order p q) = (q /= 0) && (p > 0)
 
 type Reconstitute = [Order] -> [Order] -> Orderbook         
 type Match = Price -> Price -> Bool
@@ -83,7 +82,7 @@ placeOrder o ob
         
 walkBook :: [Order] -> [Order] -> Order -> Match -> Reconstitute -> (Orderbook, Events)
 walkBook [] accSide o _ r = (r [] (insertBag o accSide), [Accepted])
-walkBook ((Order p1 q1):[]) accSide (Order p2 q2) m r 
+walkBook (Order p1 q1 : []) _ (Order p2 q2) m r 
   | m p2 p1 = (remainder r p1 p2 q1 q2, [Fill p1 (-q1), Fill p1 q1])
   | otherwise = (r [Order p1 q1] [Order p2 q2], [Accepted])
 
@@ -92,11 +91,12 @@ insertBag :: (Ord a) => a -> [a] -> [a]
 insertBag a [] = [a]
 insertBag a (x:xs)
   | a > x = a:x:xs
-  | otherwise = x:(insertBag a xs)
+  | otherwise = x : insertBag a xs
 
 instance Ord Order where compare = cmpOrder
-                
-cmpOrder (Order p1 q1) (Order p2 q2)
+             
+cmpOrder :: Order -> Order -> Ordering   
+cmpOrder (Order p1 q1) (Order p2 _)
   | q1 > 0 = compare p1 p2
   | otherwise = compare (-p1) (-p2)
 
